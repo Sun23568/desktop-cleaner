@@ -54,6 +54,18 @@ class AIAnalyzer:
         }
         """
 
+        # 第一步：规划文件分类类别
+        print(f"\n" + "🎯"*40)
+        print(f"📋 第一步：使用AI规划文件分类类别")
+        print("🎯"*40 + "\n")
+
+        planned_categories = self._plan_categories(files)
+
+        print(f"\n✅ 类别规划完成！共规划了 {len(planned_categories)} 个类别：")
+        for i, category in enumerate(planned_categories, 1):
+            print(f"   {i}. {category}")
+        print()
+
         # 分批处理文件
         batch_size = config.MAX_FILES_PER_REQUEST
         total_files = len(files)
@@ -86,7 +98,7 @@ class AIAnalyzer:
                     print(f"      ... 还有 {len(batch)-5} 个文件")
                 print("▶"*40 + "\n")
 
-                batch_result = self._analyze_batch(batch, batch_num, total_batches)
+                batch_result = self._analyze_batch(batch, batch_num, total_batches, planned_categories)
 
                 # 统计本批结果
                 batch_suggestions_count = len(batch_result.get('suggestions', []))
@@ -118,7 +130,7 @@ class AIAnalyzer:
         else:
             # 文件数量不多，直接处理
             print(f"\n📋 单批处理模式 - 共 {total_files} 个文件\n")
-            result = self._analyze_batch(files, 1, 1)
+            result = self._analyze_batch(files, 1, 1, planned_categories)
 
             # 调用进度回调
             if progress_callback:
@@ -126,18 +138,135 @@ class AIAnalyzer:
 
             return result
 
-    def _analyze_batch(self, files: List[Dict], batch_num: int = 1, total_batches: int = 1) -> Dict:
+    def _plan_categories(self, files: List[Dict]) -> List[str]:
+        """
+        使用AI规划文件分类类别
+
+        :param files: 所有文件列表
+        :return: 规划好的分类类别列表
+        """
+        # 构建文件概览（只包含文件名和扩展名，减少token消耗）
+        file_summary = []
+        extensions_count = {}
+
+        for file in files:
+            file_summary.append({
+                'name': file['name'],
+                'extension': file.get('extension', ''),
+                'size_mb': file['size_mb']
+            })
+            ext = file.get('extension', 'unknown')
+            extensions_count[ext] = extensions_count.get(ext, 0) + 1
+
+        # 构建提示词
+        prompt = f"""你是一个智能文件管理助手。请分析以下文件列表，规划出合理的文件分类类别。
+
+文件总数: {len(files)}
+
+文件扩展名统计:
+"""
+        for ext, count in sorted(extensions_count.items(), key=lambda x: x[1], reverse=True):
+            prompt += f"  {ext}: {count}个\n"
+
+        prompt += f"\n文件名列表（前100个）:\n"
+        for i, file in enumerate(file_summary[:100], 1):
+            prompt += f"{i}. {file['name']} ({file['size_mb']}MB)\n"
+
+        if len(files) > 100:
+            prompt += f"... 还有 {len(files) - 100} 个文件\n"
+
+        prompt += f"""
+请根据这些文件的类型、用途和特征，规划出8-15个合适的分类类别。
+
+要求：
+1. 类别名称要清晰、准确、易于理解
+2. 类别应该涵盖所有常见文件类型
+3. 必须包含以下基础类别：临时文件、压缩包、安装包、图片、文档、视频、音频、代码
+4. 可以根据实际文件添加更具体的类别（如：学习资料、工作文档、设计素材等）
+5. 每个类别应该有明确的边界，避免重叠
+
+请按照以下JSON格式返回（只返回JSON，不要其他文字）：
+
+{{
+    "categories": [
+        "临时文件",
+        "压缩包",
+        "安装包",
+        "图片",
+        "文档",
+        "视频",
+        "音频",
+        "代码",
+        "其他类别..."
+    ],
+    "explanation": "简要说明规划思路"
+}}
+
+现在请开始规划。"""
+
+        try:
+            print(f"📡 正在调用AI规划文件分类类别...")
+            response_text = self._call_tongyi_api(prompt)
+
+            # 解析响应
+            response_text = response_text.strip()
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.startswith('```'):
+                response_text = response_text[3:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+
+            result = json.loads(response_text)
+            categories = result.get('categories', [])
+            explanation = result.get('explanation', '')
+
+            print(f"\n✅ AI规划说明: {explanation}\n")
+
+            # 打印完整返回报文
+            print("=" * 80)
+            print("📦 类别规划完整返回数据:")
+            formatted_result = json.dumps(result, ensure_ascii=False, indent=2)
+            print(formatted_result)
+            print("=" * 80)
+
+            return categories
+
+        except Exception as e:
+            print(f"⚠️  类别规划失败，使用默认类别: {e}")
+            # 返回默认类别
+            return [
+                "临时文件",
+                "压缩包",
+                "安装包",
+                "图片",
+                "文档",
+                "表格",
+                "PPT演示",
+                "PDF文件",
+                "视频",
+                "音频",
+                "代码文件",
+                "数据文件",
+                "日志文件",
+                "配置文件",
+                "其他"
+            ]
+
+    def _analyze_batch(self, files: List[Dict], batch_num: int = 1, total_batches: int = 1, planned_categories: List[str] = None) -> Dict:
         """
         分析一批文件（内部方法）
 
         :param files: 文件列表
         :param batch_num: 当前批次号
         :param total_batches: 总批次数
+        :param planned_categories: 预定义的分类类别列表
         """
         print(f"🔄 开始分析批次 {batch_num}/{total_batches}...")
 
         # 构造发送给AI的提示词
-        prompt = self._build_prompt(files)
+        prompt = self._build_prompt(files, planned_categories)
 
         # 调用通义大模型API
         try:
@@ -153,9 +282,12 @@ class AIAnalyzer:
             print(f"❌ 批次 {batch_num} AI分析失败: {e}")
             return self._get_empty_result()
 
-    def _build_prompt(self, files: List[Dict]) -> str:
+    def _build_prompt(self, files: List[Dict], planned_categories: List[str] = None) -> str:
         """
         构建发送给AI的提示词
+
+        :param files: 文件列表
+        :param planned_categories: 预定义的分类类别列表
         """
         # 限制文件数量，避免超过token限制
         if len(files) > config.MAX_FILES_PER_REQUEST:
@@ -167,10 +299,21 @@ class AIAnalyzer:
             files_description += f"{i}. {file['name']} - {file['size_mb']}MB - 修改时间:{file['modified_time']}\n"
             files_description += f"   路径: {file['path']}\n"
 
+        # 构建类别限制说明
+        categories_instruction = ""
+        if planned_categories:
+            categories_list = "、".join(planned_categories)
+            categories_instruction = f"""
+【重要】请从以下预定义的类别中选择，不要自己创建新类别：
+{categories_list}
+
+对于每个文件的category字段，必须从上述类别中选择一个最合适的。
+"""
+
         prompt = f"""你是一个智能文件管理助手。请分析以下桌面和下载文件夹中的文件，并给出整理建议。
 
 {files_description}
-
+{categories_instruction}
 请按照以下JSON格式返回分析结果（只返回JSON，不要其他文字）：
 
 {{
@@ -179,19 +322,19 @@ class AIAnalyzer:
             "file_path": "文件完整路径",
             "action": "delete/move/keep",
             "reason": "建议理由",
-            "category": "文件分类（如：临时文件、重要文档、图片等）",
+            "category": "文件分类（必须从预定义类别中选择）",
             "confidence": 0.9
         }}
     ],
     "categories": {{
-        "临时文件": ["文件名1", "文件名2"],
-        "重要文档": ["文件名3"]
+        "类别1": ["文件名1", "文件名2"],
+        "类别2": ["文件名3"]
     }}
 }}
 
 分析要点：
 1. 识别临时文件、重复文件、过期文件，建议删除
-2. 将文件按类型分类（文档、图片、视频、安装包等）
+2. 将文件按预定义的类别进行分类
 3. 标注每个建议的置信度
 4. 给出清晰的理由
 

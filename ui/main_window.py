@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QTableWidget, QTableWidgetItem, QProgressBar,
     QLabel, QTextEdit, QSplitter, QHeaderView, QCheckBox,
-    QMessageBox, QFileDialog
+    QMessageBox, QFileDialog, QAbstractItemView
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor
@@ -42,6 +42,8 @@ class ScanThread(QThread):
 
 class AnalyzeThread(QThread):
     """AI分析线程"""
+    planning_started = pyqtSignal()  # 开始规划类别
+    planning_finished = pyqtSignal(list)  # 类别规划完成，参数为类别列表
     batch_progress = pyqtSignal(int, int, dict)  # current_batch, total_batches, batch_result
     finished = pyqtSignal(dict)  # result
     error = pyqtSignal(str)  # error message
@@ -108,9 +110,12 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setSpacing(5)  # 减小组件之间的间距
+        main_layout.setContentsMargins(10, 10, 10, 10)  # 减小边距
 
         # 顶部控制区
         control_layout = QHBoxLayout()
+        control_layout.setSpacing(8)  # 按钮之间的间距
 
         self.scan_btn = QPushButton("开始扫描")
         self.scan_btn.clicked.connect(self.start_scan)
@@ -148,6 +153,8 @@ class MainWindow(QMainWindow):
         # 左侧：文件列表
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
+        left_layout.setSpacing(3)  # 减小间距
+        left_layout.setContentsMargins(0, 0, 0, 0)
 
         files_label = QLabel("扫描到的文件:")
         left_layout.addWidget(files_label)
@@ -170,6 +177,8 @@ class MainWindow(QMainWindow):
         # 右侧：AI建议
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
+        right_layout.setSpacing(3)  # 减小间距
+        right_layout.setContentsMargins(0, 0, 0, 0)
 
         suggestions_label = QLabel("AI建议:")
         right_layout.addWidget(suggestions_label)
@@ -179,12 +188,28 @@ class MainWindow(QMainWindow):
         self.suggestions_table.setHorizontalHeaderLabels(
             ["文件", "操作", "分类", "理由", "置信度"]
         )
+        # 设置列宽模式
         self.suggestions_table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch
+            0, QHeaderView.ResizeMode.Interactive
         )
         self.suggestions_table.horizontalHeader().setSectionResizeMode(
-            3, QHeaderView.ResizeMode.Stretch
+            1, QHeaderView.ResizeMode.ResizeToContents
         )
+        self.suggestions_table.horizontalHeader().setSectionResizeMode(
+            2, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self.suggestions_table.horizontalHeader().setSectionResizeMode(
+            3, QHeaderView.ResizeMode.Stretch  # 理由列自动扩展
+        )
+        self.suggestions_table.horizontalHeader().setSectionResizeMode(
+            4, QHeaderView.ResizeMode.ResizeToContents
+        )
+        # 启用文本自动换行
+        self.suggestions_table.setWordWrap(True)
+        # 设置自动调整行高
+        self.suggestions_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        # 允许用户选择整行
+        self.suggestions_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         right_layout.addWidget(self.suggestions_table)
 
         splitter.addWidget(right_widget)
@@ -197,7 +222,7 @@ class MainWindow(QMainWindow):
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMaximumHeight(150)
+        self.log_text.setMaximumHeight(120)  # 减小日志区域高度
         main_layout.addWidget(self.log_text)
 
     def log(self, message: str):
@@ -286,11 +311,12 @@ class MainWindow(QMainWindow):
             return
 
         self.log(f"开始AI分析 {len(selected_files)} 个文件...")
+        self.log("第一步：AI规划文件分类类别...")
         self.analyze_btn.setEnabled(False)
         self.progress_bar.setVisible(True)
-        self.progress_bar.setMaximum(100)  # 确定进度（百分比）
+        self.progress_bar.setMaximum(0)  # 不确定进度（滚动模式）
         self.progress_bar.setValue(0)
-        self.progress_label.setText("正在准备分析...")
+        self.progress_label.setText("🎯 第一步：AI正在规划文件分类类别...")
         self.progress_label.setVisible(True)
 
         # 清空之前的建议
@@ -308,12 +334,18 @@ class MainWindow(QMainWindow):
 
     def on_batch_progress(self, current_batch: int, total_batches: int, batch_result: dict):
         """批次处理进度更新"""
+        # 如果是第一批，说明类别规划已完成，切换到确定进度模式
+        if current_batch == 1:
+            self.progress_bar.setMaximum(100)  # 切换到确定进度模式
+            self.log("✅ 类别规划完成！")
+            self.log("🔄 第二步：开始分批分析文件...")
+
         # 更新进度条
         progress = int((current_batch / total_batches) * 100)
         self.progress_bar.setValue(progress)
 
         # 更新进度文本
-        self.progress_label.setText(f"AI分析中: 批次 {current_batch}/{total_batches} ({progress}%)")
+        self.progress_label.setText(f"📊 AI分析中: 批次 {current_batch}/{total_batches} ({progress}%)")
 
         # 获取批次建议并累加到总建议列表
         batch_suggestions = batch_result.get('suggestions', [])
@@ -322,8 +354,23 @@ class MainWindow(QMainWindow):
         # 实时更新建议表格
         self.display_suggestions(self.ai_suggestions)
 
-        # 记录日志
+        # 记录日志（简要信息）
         self.log(f"批次 {current_batch}/{total_batches} 完成，本批获得 {len(batch_suggestions)} 条建议")
+
+        # 打印完整返回报文（详细信息）
+        self.log("=" * 80)
+        self.log(f"📦 批次 {current_batch}/{total_batches} 完整返回数据:")
+
+        import json
+        # 打印完整的batch_result
+        try:
+            formatted_result = json.dumps(batch_result, ensure_ascii=False, indent=2)
+            self.log(formatted_result)
+        except Exception as e:
+            self.log(f"无法格式化返回数据: {str(e)}")
+            self.log(str(batch_result))
+
+        self.log("=" * 80)
 
     def on_analyze_finished(self, result: dict):
         """AI分析完成"""
@@ -357,7 +404,9 @@ class MainWindow(QMainWindow):
             file_name = os.path.basename(file_path)
 
             # 文件名
-            self.suggestions_table.setItem(i, 0, QTableWidgetItem(file_name))
+            file_item = QTableWidgetItem(file_name)
+            file_item.setToolTip(file_path)  # 悬停显示完整路径
+            self.suggestions_table.setItem(i, 0, file_item)
 
             # 操作
             action = suggestion.get('action', 'keep')
@@ -369,20 +418,20 @@ class MainWindow(QMainWindow):
             self.suggestions_table.setItem(i, 1, action_item)
 
             # 分类
-            self.suggestions_table.setItem(
-                i, 2, QTableWidgetItem(suggestion.get('category', ''))
-            )
+            category_item = QTableWidgetItem(suggestion.get('category', ''))
+            self.suggestions_table.setItem(i, 2, category_item)
 
-            # 理由
-            self.suggestions_table.setItem(
-                i, 3, QTableWidgetItem(suggestion.get('reason', ''))
-            )
+            # 理由 - 支持换行显示
+            reason = suggestion.get('reason', '')
+            reason_item = QTableWidgetItem(reason)
+            reason_item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            self.suggestions_table.setItem(i, 3, reason_item)
 
             # 置信度
             confidence = suggestion.get('confidence', 0)
-            self.suggestions_table.setItem(
-                i, 4, QTableWidgetItem(f"{confidence:.2f}")
-            )
+            confidence_item = QTableWidgetItem(f"{confidence:.2f}")
+            confidence_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.suggestions_table.setItem(i, 4, confidence_item)
 
     def _translate_action(self, action: str) -> str:
         """翻译操作类型"""
