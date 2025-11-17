@@ -1,0 +1,12 @@
+# PyQt6 - GUI框架
+PyQt6>=6.6.0
+
+# 通义千问SDK（请根据实际使用情况选择一个）
+# 官方SDK
+dashscope>=1.14.0
+
+# 或者使用 requests 进行HTTP请求（如果使用兼容OpenAI的API）
+requests>=2.31.0
+
+# 其他可能用到的库
+# pathlib (Python 3.4+自带，无需安装)
