@@ -42,6 +42,7 @@ class ScanThread(QThread):
 
 class AnalyzeThread(QThread):
     """AI分析线程"""
+    batch_progress = pyqtSignal(int, int, dict)  # current_batch, total_batches, batch_result
     finished = pyqtSignal(dict)  # result
     error = pyqtSignal(str)  # error message
 
@@ -52,7 +53,12 @@ class AnalyzeThread(QThread):
 
     def run(self):
         try:
-            result = self.analyzer.analyze_files(self.files)
+            # 批次进度回调函数
+            def on_batch_progress(current_batch, total_batches, batch_result):
+                self.batch_progress.emit(current_batch, total_batches, batch_result)
+
+            # 调用分析，传入进度回调
+            result = self.analyzer.analyze_files(self.files, progress_callback=on_batch_progress)
             self.finished.emit(result)
         except Exception as e:
             self.error.emit(str(e))
@@ -282,28 +288,55 @@ class MainWindow(QMainWindow):
         self.log(f"开始AI分析 {len(selected_files)} 个文件...")
         self.analyze_btn.setEnabled(False)
         self.progress_bar.setVisible(True)
-        self.progress_bar.setMaximum(0)  # 不确定进度
-        self.progress_label.setText("AI分析中，请稍候...")
+        self.progress_bar.setMaximum(100)  # 确定进度（百分比）
+        self.progress_bar.setValue(0)
+        self.progress_label.setText("正在准备分析...")
         self.progress_label.setVisible(True)
+
+        # 清空之前的建议
+        self.ai_suggestions = []
+        self.suggestions_table.setRowCount(0)
 
         # 转换为字典格式
         files_data = [f.to_dict() for f in selected_files]
 
         self.analyze_thread = AnalyzeThread(self.analyzer, files_data)
+        self.analyze_thread.batch_progress.connect(self.on_batch_progress)  # 连接批次进度信号
         self.analyze_thread.finished.connect(self.on_analyze_finished)
         self.analyze_thread.error.connect(self.on_analyze_error)
         self.analyze_thread.start()
 
-    def on_analyze_finished(self, result: dict):
-        """AI分析完成"""
-        self.ai_suggestions = result.get('suggestions', [])
-        self.log(f"AI分析完成！生成了 {len(self.ai_suggestions)} 条建议")
+    def on_batch_progress(self, current_batch: int, total_batches: int, batch_result: dict):
+        """批次处理进度更新"""
+        # 更新进度条
+        progress = int((current_batch / total_batches) * 100)
+        self.progress_bar.setValue(progress)
 
-        # 显示建议
+        # 更新进度文本
+        self.progress_label.setText(f"AI分析中: 批次 {current_batch}/{total_batches} ({progress}%)")
+
+        # 获取批次建议并累加到总建议列表
+        batch_suggestions = batch_result.get('suggestions', [])
+        self.ai_suggestions.extend(batch_suggestions)
+
+        # 实时更新建议表格
         self.display_suggestions(self.ai_suggestions)
 
+        # 记录日志
+        self.log(f"批次 {current_batch}/{total_batches} 完成，本批获得 {len(batch_suggestions)} 条建议")
+
+    def on_analyze_finished(self, result: dict):
+        """AI分析完成"""
+        # ai_suggestions 已经在 on_batch_progress 中更新过了
+        # 这里只做最终确认（防止没有批次的情况）
+        if not self.ai_suggestions:
+            self.ai_suggestions = result.get('suggestions', [])
+            self.display_suggestions(self.ai_suggestions)
+
+        self.log(f"✅ 所有批次分析完成！共生成 {len(self.ai_suggestions)} 条建议")
+
         self.analyze_btn.setEnabled(True)
-        self.execute_btn.setEnabled(True)
+        self.execute_btn.setEnabled(True if self.ai_suggestions else False)
         self.progress_bar.setVisible(False)
         self.progress_label.setVisible(False)
 

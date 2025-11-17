@@ -35,8 +35,15 @@ BACKUP_FOLDER = str(Path.home() / "Desktop" / "备份文件夹")
 ENABLE_BACKUP = True  # 是否在删除前备份
 
 # AI 分析配置
-MAX_FILES_PER_REQUEST = 20  # 每次发送给AI的最大文件数量（减少以避免超时）
-AI_TIMEOUT = 120  # AI请求超时时间（秒）增加到120秒
+MAX_FILES_PER_REQUEST = 10  # 每次发送给AI的最大文件数量（建议5-15之间）
+AI_TIMEOUT = 120  # AI请求超时时间（秒）
+AI_MAX_RETRIES = 3  # API调用失败时的最大重试次数
+AI_RETRY_DELAY = 5  # 重试间隔时间（秒）
+
+# 日志配置
+ENABLE_DETAIL_LOG = True  # 是否启用详细日志（包括请求和响应内容）
+LOG_REQUEST_PARAMS = True  # 是否记录请求参数
+LOG_RESPONSE_CONTENT = True  # 是否记录响应内容
 
 # UI 配置
 WINDOW_TITLE = "智能桌面清理工具"
