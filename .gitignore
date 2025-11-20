@@ -185,3 +185,7 @@ yarn-error.log*
 test_output/
 output/
 temp/
+
+# Scripts and test files
+*.sh
+test_*.py
