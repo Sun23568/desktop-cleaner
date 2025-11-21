@@ -104,13 +104,19 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(config.WINDOW_TITLE)
         self.setGeometry(100, 100, config.WINDOW_WIDTH, config.WINDOW_HEIGHT)
 
+        # 应用现代化样式
+        self.apply_modern_style()
+
         # 主布局
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
 
         # 顶部控制区
         control_layout = QHBoxLayout()
+        control_layout.setSpacing(10)
 
         self.scan_btn = QPushButton("开始扫描")
         self.scan_btn.clicked.connect(self.start_scan)
@@ -129,6 +135,7 @@ class MainWindow(QMainWindow):
         control_layout.addStretch()
 
         self.stats_label = QLabel("准备扫描...")
+        self.stats_label.setObjectName("stats_label")
         control_layout.addWidget(self.stats_label)
 
         main_layout.addLayout(control_layout)
@@ -143,14 +150,17 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.progress_label)
 
         # 分割器
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Vertical)
 
-        # 左侧：文件列表
-        left_widget = QWidget()
-        left_layout = QVBoxLayout(left_widget)
+        # 上部：文件列表
+        top_widget = QWidget()
+        top_layout = QVBoxLayout(top_widget)
+        top_layout.setContentsMargins(0, 0, 0, 0)
+        top_layout.setSpacing(10)
 
-        files_label = QLabel("扫描到的文件:")
-        left_layout.addWidget(files_label)
+        files_label = QLabel("📁 扫描到的文件")
+        files_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2d5266; padding: 5px 0px;")
+        top_layout.addWidget(files_label)
 
         self.files_table = QTableWidget()
         self.files_table.setColumnCount(5)
@@ -163,16 +173,19 @@ class MainWindow(QMainWindow):
         self.files_table.horizontalHeader().setSectionResizeMode(
             3, QHeaderView.ResizeMode.Stretch
         )
-        left_layout.addWidget(self.files_table)
+        top_layout.addWidget(self.files_table)
 
-        splitter.addWidget(left_widget)
+        splitter.addWidget(top_widget)
 
-        # 右侧：AI建议
-        right_widget = QWidget()
-        right_layout = QVBoxLayout(right_widget)
+        # 下部：AI建议
+        bottom_widget = QWidget()
+        bottom_layout = QVBoxLayout(bottom_widget)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(10)
 
-        suggestions_label = QLabel("AI建议:")
-        right_layout.addWidget(suggestions_label)
+        suggestions_label = QLabel("🤖 AI建议")
+        suggestions_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2d5266; padding: 5px 0px;")
+        bottom_layout.addWidget(suggestions_label)
 
         self.suggestions_table = QTableWidget()
         self.suggestions_table.setColumnCount(5)
@@ -185,14 +198,18 @@ class MainWindow(QMainWindow):
         self.suggestions_table.horizontalHeader().setSectionResizeMode(
             3, QHeaderView.ResizeMode.Stretch
         )
-        right_layout.addWidget(self.suggestions_table)
+        bottom_layout.addWidget(self.suggestions_table)
 
-        splitter.addWidget(right_widget)
+        splitter.addWidget(bottom_widget)
+
+        # 设置分割器的默认大小比例
+        splitter.setSizes([400, 300])
 
         main_layout.addWidget(splitter)
 
         # 底部日志区
-        log_label = QLabel("日志:")
+        log_label = QLabel("📝 运行日志")
+        log_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #2d5266; padding: 5px 0px;")
         main_layout.addWidget(log_label)
 
         self.log_text = QTextEdit()
@@ -247,22 +264,30 @@ class MainWindow(QMainWindow):
 
         for i, file_info in enumerate(files):
             # 文件名
-            self.files_table.setItem(i, 0, QTableWidgetItem(file_info.name))
+            name_item = QTableWidgetItem(file_info.name)
+            name_item.setToolTip(f"文件名: {file_info.name}\n完整路径: {file_info.path}")
+            self.files_table.setItem(i, 0, name_item)
 
             # 大小
-            self.files_table.setItem(i, 1, QTableWidgetItem(str(file_info.size_mb)))
+            size_item = QTableWidgetItem(str(file_info.size_mb))
+            size_item.setToolTip(f"文件大小: {file_info.size_mb} MB")
+            self.files_table.setItem(i, 1, size_item)
 
             # 修改时间
-            self.files_table.setItem(
-                i, 2, QTableWidgetItem(file_info.modified_time.strftime('%Y-%m-%d %H:%M'))
-            )
+            time_str = file_info.modified_time.strftime('%Y-%m-%d %H:%M')
+            time_item = QTableWidgetItem(time_str)
+            time_item.setToolTip(f"最后修改时间: {file_info.modified_time.strftime('%Y年%m月%d日 %H:%M:%S')}")
+            self.files_table.setItem(i, 2, time_item)
 
             # 路径
-            self.files_table.setItem(i, 3, QTableWidgetItem(file_info.path))
+            path_item = QTableWidgetItem(file_info.path)
+            path_item.setToolTip(f"完整路径:\n{file_info.path}")
+            self.files_table.setItem(i, 3, path_item)
 
             # 选择框
             checkbox = QCheckBox()
             checkbox.setChecked(True)
+            checkbox.setToolTip("勾选以包含在AI分析中")
             cell_widget = QWidget()
             cell_layout = QHBoxLayout(cell_widget)
             cell_layout.addWidget(checkbox)
@@ -357,32 +382,37 @@ class MainWindow(QMainWindow):
             file_name = os.path.basename(file_path)
 
             # 文件名
-            self.suggestions_table.setItem(i, 0, QTableWidgetItem(file_name))
+            file_item = QTableWidgetItem(file_name)
+            file_item.setToolTip(f"完整路径:\n{file_path}")
+            self.suggestions_table.setItem(i, 0, file_item)
 
             # 操作
             action = suggestion.get('action', 'keep')
             action_item = QTableWidgetItem(self._translate_action(action))
+            action_item.setToolTip(f"操作: {self._translate_action(action)}")
             if action == 'delete':
-                action_item.setBackground(QColor(255, 200, 200))
+                action_item.setBackground(QColor(255, 220, 220))
             elif action == 'move':
-                action_item.setBackground(QColor(200, 255, 200))
+                action_item.setBackground(QColor(220, 245, 220))
             self.suggestions_table.setItem(i, 1, action_item)
 
             # 分类
-            self.suggestions_table.setItem(
-                i, 2, QTableWidgetItem(suggestion.get('category', ''))
-            )
+            category = suggestion.get('category', '')
+            category_item = QTableWidgetItem(category)
+            category_item.setToolTip(f"分类: {category}")
+            self.suggestions_table.setItem(i, 2, category_item)
 
             # 理由
-            self.suggestions_table.setItem(
-                i, 3, QTableWidgetItem(suggestion.get('reason', ''))
-            )
+            reason = suggestion.get('reason', '')
+            reason_item = QTableWidgetItem(reason)
+            reason_item.setToolTip(f"详细理由:\n{reason}")
+            self.suggestions_table.setItem(i, 3, reason_item)
 
             # 置信度
             confidence = suggestion.get('confidence', 0)
-            self.suggestions_table.setItem(
-                i, 4, QTableWidgetItem(f"{confidence:.2f}")
-            )
+            confidence_item = QTableWidgetItem(f"{confidence:.2f}")
+            confidence_item.setToolTip(f"AI置信度: {confidence:.2%}")
+            self.suggestions_table.setItem(i, 4, confidence_item)
 
     def _translate_action(self, action: str) -> str:
         """翻译操作类型"""
@@ -461,3 +491,163 @@ class MainWindow(QMainWindow):
 
         # 重新扫描
         self.start_scan()
+
+    def apply_modern_style(self):
+        """应用现代化样式"""
+        style = """
+        /* 主窗口样式 */
+        QMainWindow {
+            background-color: #fafafa;
+        }
+
+        /* 中心部件 */
+        QWidget {
+            background-color: #fafafa;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-size: 13px;
+        }
+
+        /* 按钮样式 */
+        QPushButton {
+            background-color: #5b8ba8;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-weight: 500;
+            min-width: 100px;
+            font-size: 13px;
+        }
+
+        QPushButton:hover {
+            background-color: #4a7a97;
+        }
+
+        QPushButton:pressed {
+            background-color: #3a6a85;
+        }
+
+        QPushButton:disabled {
+            background-color: #c8c8c8;
+            color: #888888;
+        }
+
+        /* 标签样式 */
+        QLabel {
+            color: #424242;
+            font-size: 13px;
+            padding: 5px;
+        }
+
+        /* 统计标签 */
+        QLabel#stats_label {
+            background-color: white;
+            border: 1px solid #c0c0c0;
+            border-radius: 6px;
+            padding: 8px 15px;
+            font-weight: 500;
+            color: #2d5266;
+        }
+
+        /* 表格样式 */
+        QTableWidget {
+            background-color: white;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            gridline-color: #f0f0f0;
+            selection-background-color: #e8f0f7;
+            selection-color: #424242;
+        }
+
+        QTableWidget::item {
+            padding: 8px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        QTableWidget::item:selected {
+            background-color: #e8f0f7;
+            color: #424242;
+        }
+
+        QHeaderView::section {
+            background-color: #5b8ba8;
+            color: #ffffff;
+            padding: 10px;
+            border: none;
+            font-weight: 500;
+            font-size: 13px;
+        }
+
+        QHeaderView::section:first {
+            border-top-left-radius: 8px;
+        }
+
+        QHeaderView::section:last {
+            border-top-right-radius: 8px;
+        }
+
+        /* 进度条样式 */
+        QProgressBar {
+            border: 1px solid #c0c0c0;
+            border-radius: 8px;
+            background-color: white;
+            text-align: center;
+            color: #2d5266;
+            font-weight: 500;
+            height: 25px;
+        }
+
+        QProgressBar::chunk {
+            background: qlineargradient(
+                x1:0, y1:0, x2:1, y2:0,
+                stop:0 #5b8ba8,
+                stop:1 #7aa3ba
+            );
+            border-radius: 7px;
+        }
+
+        /* 文本编辑框（日志）样式 */
+        QTextEdit {
+            background-color: white;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            padding: 10px;
+            color: #424242;
+            font-family: "Consolas", "Monaco", monospace;
+            font-size: 12px;
+        }
+
+        /* 分割器样式 */
+        QSplitter::handle {
+            background-color: #d0d0d0;
+            height: 2px;
+        }
+
+        QSplitter::handle:hover {
+            background-color: #5b8ba8;
+        }
+
+        /* 复选框样式 */
+        QCheckBox {
+            spacing: 5px;
+        }
+
+        QCheckBox::indicator {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #bbb;
+            border-radius: 4px;
+            background-color: white;
+        }
+
+        QCheckBox::indicator:checked {
+            background-color: #5b8ba8;
+            border-color: #5b8ba8;
+            image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEzLjMzMzMgNEw2IDExLjMzMzNMMi42NjY2NyA4IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
+        }
+
+        QCheckBox::indicator:hover {
+            border-color: #5b8ba8;
+        }
+        """
+        self.setStyleSheet(style)
