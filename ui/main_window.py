@@ -20,6 +20,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.file_scanner import FileScanner
 from core.ai_analyzer import AIAnalyzer
 from core.file_manager import FileManager
+from core.user_config import get_config_manager
+from ui.settings_dialog import SettingsDialog
 
 
 class ScanThread(QThread):
@@ -90,14 +92,63 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self.config_manager = get_config_manager()
         self.scanner = FileScanner()
-        self.analyzer = AIAnalyzer()
+        self.analyzer = self.create_analyzer()
         self.manager = FileManager()
 
         self.scanned_files = []
         self.ai_suggestions = []
 
         self.init_ui()
+        self.update_window_title()
+
+        # 首次运行检查
+        self.check_first_run()
+
+    def create_analyzer(self):
+        """根据用户配置创建AI分析器"""
+        provider_type = self.config_manager.get('ai_provider', 'tongyi')
+        return AIAnalyzer(provider_type=provider_type)
+
+    def update_window_title(self):
+        """更新窗口标题，显示当前使用的AI引擎"""
+        provider = self.config_manager.get('ai_provider', 'tongyi')
+        provider_name = "通义千问" if provider == 'tongyi' else "规则引擎"
+        self.setWindowTitle(f"{config.WINDOW_TITLE} - 当前引擎: {provider_name}")
+
+    def check_first_run(self):
+        """检查是否首次运行，如果是则提示配置"""
+        provider = self.config_manager.get('ai_provider', 'tongyi')
+        api_key = self.config_manager.get('tongyi_api_key', '')
+
+        # 如果选择了通义千问但没有配置API Key
+        if provider == 'tongyi' and not api_key:
+            self.log("⚠️  检测到你还没有配置API Key")
+            self.log("💡 提示：点击右上角的'⚙ 设置'按钮进行配置")
+            self.log("   你可以选择：")
+            self.log("   1. 通义千问（需要API Key，智能分析）")
+            self.log("   2. 规则引擎（无需API Key，完全离线）")
+            self.log("")
+
+            # 弹出提示对话框
+            reply = QMessageBox.question(
+                self,
+                "欢迎使用",
+                "👋 欢迎使用智能桌面清理工具！\n\n"
+                "检测到你还没有配置AI引擎，请选择：\n\n"
+                "📌 通义千问（需要API Key）\n"
+                "   • 智能分析，理解上下文\n"
+                "   • 需要网络连接\n\n"
+                "📌 规则引擎（无需API Key）\n"
+                "   • 完全离线，快速\n"
+                "   • 基于规则判断\n\n"
+                "是否现在打开设置？",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                self.open_settings()
 
     def init_ui(self):
         """初始化UI"""
@@ -137,6 +188,12 @@ class MainWindow(QMainWindow):
         self.stats_label = QLabel("准备扫描...")
         self.stats_label.setObjectName("stats_label")
         control_layout.addWidget(self.stats_label)
+
+        # 设置按钮
+        self.settings_btn = QPushButton("⚙ 设置")
+        self.settings_btn.clicked.connect(self.open_settings)
+        self.settings_btn.setToolTip("配置AI引擎和API Key")
+        control_layout.addWidget(self.settings_btn)
 
         main_layout.addLayout(control_layout)
 
@@ -491,6 +548,23 @@ class MainWindow(QMainWindow):
 
         # 重新扫描
         self.start_scan()
+
+    def open_settings(self):
+        """打开设置对话框"""
+        dialog = SettingsDialog(self)
+        if dialog.exec():
+            # 用户点击了保存，重新加载配置
+            self.log("⚙️  设置已更新，重新初始化AI分析器...")
+
+            # 重新创建analyzer
+            self.analyzer = self.create_analyzer()
+
+            # 更新窗口标题
+            self.update_window_title()
+
+            provider = self.config_manager.get('ai_provider', 'tongyi')
+            provider_name = "通义千问" if provider == 'tongyi' else "规则引擎"
+            self.log(f"✅ 当前使用: {provider_name}")
 
     def apply_modern_style(self):
         """应用现代化样式"""
