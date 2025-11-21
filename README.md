@@ -1,214 +1,298 @@
 # 智能桌面清理工具
 
-基于 PyQt6 和通义千问大模型的智能桌面文件整理工具。
+基于 PyQt6 和 AI 的智能桌面文件整理工具，支持多种AI引擎，可完全离线使用。
 
-## 功能特点
+## ✨ 核心特性
 
-- 自动扫描桌面和下载文件夹
-- AI智能分析文件，给出整理建议
-- 支持文件删除、移动、分类
-- 自动备份功能，防止误删
-- 友好的图形界面
+- 🤖 **多AI引擎支持**：通义千问 / 规则引擎（完全离线）
+- ⚙️ **图形化配置**：无需修改代码，界面直接配置
+- 📊 **智能分析**：AI理解文件内容和上下文
+- 🔄 **自动降级**：AI失败时自动切换到规则引擎
+- 💾 **安全备份**：操作前自动备份，防止误删
+- 🎨 **现代化UI**：友好的图形界面，实时进度显示
 
-## 项目结构
+---
 
+## 📚 文档导航
+
+### 🚀 快速开始
+- **[USER_GUIDE.md](docs/USER_GUIDE.md)** - 用户使用指南（推荐首读）
+- **[QUICK_START.md](docs/QUICK_START.md)** - 快速开始指南
+- **[FIXED.md](docs/FIXED.md)** - 问题修复说明
+
+### 📖 配置文档
+- **[CONFIG_GUIDE.md](docs/CONFIG_GUIDE.md)** - 配置参数详解
+- **[README_AI_PROVIDERS.md](docs/README_AI_PROVIDERS.md)** - AI提供商使用说明
+
+### 🔧 开发文档
+- **[AI_PROVIDERS_GUIDE.md](docs/AI_PROVIDERS_GUIDE.md)** - AI提供商开发指南
+- **[BATCH_PROGRESS_GUIDE.md](docs/BATCH_PROGRESS_GUIDE.md)** - 批量处理进度指南
+- **[TONGYI_API_GUIDE.md](docs/TONGYI_API_GUIDE.md)** - 通义千问API指南
+
+### 📝 更新记录
+- **[CHANGELOG.md](docs/CHANGELOG.md)** - 版本更新日志
+
+---
+
+## 🎯 三种使用方式
+
+### 1️⃣ 通义千问（智能分析）
+需要API Key，智能程度最高
+```python
+# 在界面点击"⚙ 设置"，选择"通义千问"，填写API Key
 ```
-desktop-cleaner/
-├── main.py                 # 应用入口
-├── config.py              # 配置文件
-├── requirements.txt       # 依赖包
-├── ui/                    # UI界面
-│   └── main_window.py    # 主窗口
-└── core/                  # 核心逻辑
-    ├── file_scanner.py   # 文件扫描
-    ├── ai_analyzer.py    # AI分析（需要配置）
-    └── file_manager.py   # 文件操作
+
+### 2️⃣ 规则引擎（完全离线）
+无需API Key，完全免费
+```python
+# 在界面点击"⚙ 设置"，选择"规则引擎"
 ```
 
-## 安装步骤
+### 3️⃣ 混合模式（推荐）
+AI失败时自动降级到规则引擎
+```python
+# 默认已启用，无需配置
+```
+
+---
+
+## 📦 快速安装
 
 ### 1. 安装依赖
-
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 配置通义千问API
-
-**重要：必须配置API才能使用AI功能！**
-
-在 `config.py` 中填写你的通义千问 API Key：
-
-```python
-# 通义千问 API 配置
-TONGYI_API_KEY = "sk-ac83350d4bc3493ab2a0dcc754b8c44e"  # 在这里填写
-TONGYI_MODEL = "qwen3-coder-plus"  # 可选: qwen-max, qwen-plus, qwen-turbo
-```
-
-### 3. 实现AI接口
-
-打开 `core/ai_analyzer.py`，找到 `_call_tongyi_api` 方法（约第108行），按照注释实现通义大模型调用。
-
-#### 方法1: 使用 dashscope SDK（推荐）
-
-```python
-def _call_tongyi_api(self, prompt: str) -> str:
-    import dashscope
-    from dashscope import Generation
-
-    dashscope.api_key = self.api_key
-
-    response = Generation.call(
-        model=self.model,
-        prompt=prompt,
-        result_format='message'
-    )
-
-    if response.status_code == 200:
-        return response.output.text
-    else:
-        raise Exception(f"API调用失败: {response.message}")
-```
-
-#### 方法2: 使用 HTTP 请求（OpenAI兼容模式）
-
-```python
-def _call_tongyi_api(self, prompt: str) -> str:
-    import requests
-
-    url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {self.api_key}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": self.model,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
-    }
-
-    response = requests.post(url, headers=headers, json=data, timeout=config.AI_TIMEOUT)
-    result = response.json()
-    return result['choices'][0]['message']['content']
-```
-
-## 使用方法
-
-### 1. 运行程序
-
+### 2. 运行程序
 ```bash
 python main.py
 ```
 
-### 2. 扫描文件
+### 3. 配置AI引擎
+程序启动后：
+1. 点击右上角 **"⚙ 设置"** 按钮
+2. 选择AI引擎（通义千问 或 规则引擎）
+3. 如果选择通义千问，填写API Key
+4. 保存设置
+5. 开始使用！
 
-点击"开始扫描"按钮，程序会自动扫描桌面和下载文件夹。
+**获取通义千问API Key**：[点击这里](https://dashscope.aliyun.com/)
 
-### 3. AI分析
+---
 
-扫描完成后，点击"AI分析"按钮，通义千问会分析文件并给出整理建议。
+## 💡 使用流程
 
-### 4. 执行操作
+```
+1. 点击"⚙ 设置" → 配置AI引擎
+2. 点击"开始扫描" → 扫描文件
+3. 点击"AI分析" → 智能分析
+4. 点击"执行操作" → 整理文件
+```
 
-查看AI建议后，点击"执行操作"按钮确认执行。
+---
 
-**注意：执行前会自动备份文件到 `桌面/备份文件夹`！**
+## 🏗️ 项目结构
 
-## 配置说明
+```
+desktop-cleaner/
+├── main.py                      # 应用入口
+├── config.py                    # 全局配置
+├── requirements.txt             # 依赖包
+│
+├── ui/                          # UI界面
+│   ├── main_window.py          # 主窗口
+│   └── settings_dialog.py      # 设置对话框
+│
+├── core/                        # 核心逻辑
+│   ├── file_scanner.py         # 文件扫描
+│   ├── ai_analyzer.py          # AI分析器（多提供商）
+│   ├── file_manager.py         # 文件操作
+│   ├── user_config.py          # 用户配置管理
+│   │
+│   └── ai_providers/           # AI提供商模块
+│       ├── base_provider.py    # 抽象基类
+│       ├── tongyi_provider.py  # 通义千问
+│       ├── rule_based_provider.py  # 规则引擎
+│       └── provider_factory.py # 提供商工厂
+│
+└── docs/                        # 文档目录
+    ├── USER_GUIDE.md           # 用户使用指南
+    ├── QUICK_START.md          # 快速开始指南
+    ├── FIXED.md                # 问题修复说明
+    ├── CONFIG_GUIDE.md         # 配置参数详解
+    ├── README_AI_PROVIDERS.md  # AI提供商使用说明
+    ├── AI_PROVIDERS_GUIDE.md   # AI提供商开发指南
+    ├── BATCH_PROGRESS_GUIDE.md # 批量处理进度指南
+    ├── TONGYI_API_GUIDE.md     # 通义千问API指南
+    └── CHANGELOG.md            # 版本更新日志
+```
 
-在 `config.py` 中可以自定义以下配置：
+---
 
-### 扫描路径
+## ⚙️ 主要配置
 
+### AI提供商配置
+```python
+# config.py
+AI_PROVIDER = 'tongyi'           # 'tongyi' 或 'rule_based'
+AI_FALLBACK_TO_RULES = True      # 启用自动降级
+```
+
+### 扫描路径配置
 ```python
 DEFAULT_SCAN_PATHS = [
-    str(Path.home() / "Desktop"),   # 桌面
-    str(Path.home() / "Downloads"), # 下载文件夹
+    str(Path.home() / "Desktop"),    # 桌面
+    str(Path.home() / "Downloads"),  # 下载文件夹
 ]
 ```
 
-### 忽略规则
-
-```python
-# 忽略的文件扩展名
-IGNORE_EXTENSIONS = ['.ini', '.sys', '.dll']
-
-# 忽略的文件夹
-IGNORE_FOLDERS = ['$RECYCLE.BIN', 'System Volume Information']
-```
-
 ### 备份设置
-
 ```python
 BACKUP_FOLDER = str(Path.home() / "Desktop" / "备份文件夹")
-ENABLE_BACKUP = True  # 是否在删除前备份
+ENABLE_BACKUP = True  # 强烈建议开启
 ```
 
-## 获取通义千问API Key
+更多配置请参考：[CONFIG_GUIDE.md](docs/CONFIG_GUIDE.md)
 
-1. 访问 [阿里云百炼平台](https://www.aliyun.com/product/bailian)
-2. 注册/登录账号
-3. 开通通义千问服务
-4. 创建 API Key
-5. 将 API Key 填入 `config.py`
+---
 
-## 注意事项
+## 🎨 功能特点
 
-1. **备份功能**：建议保持 `ENABLE_BACKUP = True`，防止误删重要文件
-2. **API费用**：通义千问API按调用量收费，请关注使用量
-3. **文件安全**：执行删除操作前请仔细检查AI建议
-4. **权限问题**：某些系统文件可能无法访问，属正常现象
+### 多AI引擎支持
+- ✅ 通义千问：智能分析，理解上下文
+- ✅ 规则引擎：完全离线，快速分析
+- ✅ 自动降级：AI失败时自动切换
+- ✅ 易于扩展：可添加OpenAI、Ollama等
 
-## 常见问题
+### 用户友好
+- 🖱️ 图形化配置：无需修改代码
+- 📊 实时进度：批量处理进度显示
+- 💬 悬浮提示：详细信息气泡
+- 🎨 现代化UI：柔和配色，舒适体验
 
-### Q: AI分析失败怎么办？
+### 安全可靠
+- 💾 自动备份：删除前自动备份
+- 🔄 配置持久化：设置自动保存
+- ⚠️ 智能提示：操作前二次确认
+- 🛡️ 权限处理：安全的文件操作
 
-A: 检查以下几点：
-- API Key是否正确填写
-- 网络连接是否正常
-- `ai_analyzer.py` 中的 `_call_tongyi_api` 方法是否正确实现
+---
 
-### Q: 扫描不到文件？
+## 📊 AI引擎对比
 
-A: 检查：
-- 扫描路径是否正确
-- 是否有文件被忽略规则过滤
+| 特性 | 通义千问 | 规则引擎 |
+|------|----------|----------|
+| 需要API Key | ✅ | ❌ |
+| 需要网络 | ✅ | ❌ |
+| 智能程度 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| 分析速度 | 中等 | 极快 |
+| 成本 | 低 | 免费 |
+| 上下文理解 | ✅ | ❌ |
 
-### Q: 执行操作时出错？
+---
 
-A: 可能原因：
-- 文件被其他程序占用
-- 没有文件访问权限
-- 磁盘空间不足
+## 🔧 常见问题
 
-## 开发说明
+### Q: 如何切换AI引擎？
+A: 点击"⚙ 设置" → 选择引擎 → 保存
 
-### 核心模块
+### Q: 没有API Key可以用吗？
+A: 可以！选择"规则引擎"，完全免费离线
 
-#### file_scanner.py
-- `FileScanner`: 文件扫描器
-- `FileInfo`: 文件信息类
-- 支持递归扫描、进度回调
+### Q: API Key会被上传吗？
+A: 不会！API Key仅保存在本地，只用于调用通义千问API
 
-#### ai_analyzer.py
-- `AIAnalyzer`: AI分析器
-- **需要实现 `_call_tongyi_api` 方法**
-- 负责构造提示词、解析响应
+### Q: 配置会丢失吗？
+A: 不会！配置自动保存在 `~/.desktop-cleaner/user_config.json`
 
-#### file_manager.py
-- `FileManager`: 文件管理器
-- 支持删除、移动、备份操作
+### Q: 规则引擎够用吗？
+A: 对于简单文件分类够用，复杂场景建议用通义千问
 
-#### main_window.py
-- `MainWindow`: 主界面
-- 使用多线程避免界面卡顿
-- 实时显示进度
+更多问题请查看：[USER_GUIDE.md](docs/USER_GUIDE.md)
 
-## 许可证
+---
+
+## 🚀 高级功能
+
+### 自定义规则引擎参数
+```python
+# 在设置界面调整
+旧文件阈值: 90天
+临时文件阈值: 7天
+```
+
+### 批量处理配置
+```python
+批次大小: 10  # 每次分析的文件数
+超时时间: 120秒
+```
+
+### 添加新的AI提供商
+参考：[AI_PROVIDERS_GUIDE.md](docs/AI_PROVIDERS_GUIDE.md)
+
+---
+
+## 📝 更新日志
+
+### v2.0.0 (2025-11-21) - 重大更新
+- 🎯 AI提供商插件化架构
+- ⚙️ 图形化设置界面
+- 🔄 自动降级机制
+- 📱 用户配置管理
+- 🎨 UI优化（上下布局、柔和配色）
+- 📏 文件大小改为KB精度
+
+查看完整更新：[CHANGELOG.md](docs/CHANGELOG.md)
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+### 开发指南
+1. Fork 本项目
+2. 创建特性分支
+3. 提交更改
+4. 推送到分支
+5. 创建 Pull Request
+
+---
+
+## 📄 许可证
 
 MIT License
 
-## 贡献
+---
 
-欢迎提交 Issue 和 Pull Request！
+## 🙏 致谢
+
+- PyQt6 - 图形界面框架
+- 通义千问 - AI分析引擎
+- 所有贡献者
+
+---
+
+## 📞 获取帮助
+
+- 📖 查看文档：[docs/](docs/)
+- 🐛 报告问题：[GitHub Issues](https://github.com)
+- 💬 讨论交流：[Discussions](https://github.com)
+
+---
+
+## ⭐ 开始使用
+
+```bash
+# 1. 安装依赖
+pip install -r requirements.txt
+
+# 2. 运行程序
+python main.py
+
+# 3. 点击"⚙ 设置"配置AI引擎
+
+# 4. 开始智能清理！
+```
+
+祝使用愉快！🎉
