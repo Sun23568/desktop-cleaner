@@ -16,6 +16,7 @@ class FileInfo:
         self.name = os.path.basename(file_path)
         self.extension = os.path.splitext(file_path)[1].lower()
         self.size = os.path.getsize(file_path)  # 字节
+        self.size_kb = round(self.size / 1024, 2)  # KB
         self.size_mb = round(self.size / (1024 * 1024), 2)  # MB
         self.modified_time = datetime.fromtimestamp(os.path.getmtime(file_path))
         self.created_time = datetime.fromtimestamp(os.path.getctime(file_path))
@@ -27,6 +28,7 @@ class FileInfo:
             'name': self.name,
             'path': self.path,
             'extension': self.extension,
+            'size_kb': self.size_kb,
             'size_mb': self.size_mb,
             'modified_time': self.modified_time.strftime('%Y-%m-%d %H:%M:%S'),
             'created_time': self.created_time.strftime('%Y-%m-%d %H:%M:%S'),

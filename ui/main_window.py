@@ -165,7 +165,7 @@ class MainWindow(QMainWindow):
         self.files_table = QTableWidget()
         self.files_table.setColumnCount(5)
         self.files_table.setHorizontalHeaderLabels(
-            ["文件名", "大小(MB)", "修改时间", "路径", "选择"]
+            ["文件名", "大小(KB)", "修改时间", "路径", "选择"]
         )
         self.files_table.horizontalHeader().setSectionResizeMode(
             0, QHeaderView.ResizeMode.Stretch
@@ -269,8 +269,8 @@ class MainWindow(QMainWindow):
             self.files_table.setItem(i, 0, name_item)
 
             # 大小
-            size_item = QTableWidgetItem(str(file_info.size_mb))
-            size_item.setToolTip(f"文件大小: {file_info.size_mb} MB")
+            size_item = QTableWidgetItem(str(file_info.size_kb))
+            size_item.setToolTip(f"文件大小: {file_info.size_kb} KB ({file_info.size_mb} MB)")
             self.files_table.setItem(i, 1, size_item)
 
             # 修改时间

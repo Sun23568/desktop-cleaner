@@ -81,7 +81,7 @@ class AIAnalyzer:
                 print(f"   本批文件数: {len(batch)}")
                 print(f"   文件列表:")
                 for idx, f in enumerate(batch[:5], 1):  # 只显示前5个
-                    print(f"      {idx}. {f['name']} ({f['size_mb']}MB)")
+                    print(f"      {idx}. {f['name']} ({f['size_kb']}KB)")
                 if len(batch) > 5:
                     print(f"      ... 还有 {len(batch)-5} 个文件")
                 print("▶"*40 + "\n")
@@ -164,7 +164,7 @@ class AIAnalyzer:
         # 构造文件列表的描述
         files_description = "文件列表:\n"
         for i, file in enumerate(files, 1):
-            files_description += f"{i}. {file['name']} - {file['size_mb']}MB - 修改时间:{file['modified_time']}\n"
+            files_description += f"{i}. {file['name']} - {file['size_kb']}KB - 修改时间:{file['modified_time']}\n"
             files_description += f"   路径: {file['path']}\n"
 
         prompt = f"""你是一个智能文件管理助手。请分析以下桌面和下载文件夹中的文件，并给出整理建议。
@@ -436,6 +436,7 @@ if __name__ == '__main__':
             'name': 'temp_file.tmp',
             'path': '/home/user/Desktop/temp_file.tmp',
             'extension': '.tmp',
+            'size_kb': 1536.0,
             'size_mb': 1.5,
             'modified_time': '2024-01-15 10:30:00'
         },
@@ -443,6 +444,7 @@ if __name__ == '__main__':
             'name': 'important_doc.pdf',
             'path': '/home/user/Desktop/important_doc.pdf',
             'extension': '.pdf',
+            'size_kb': 5324.8,
             'size_mb': 5.2,
             'modified_time': '2025-11-10 14:20:00'
         }
