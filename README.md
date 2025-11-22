@@ -18,6 +18,8 @@
 ### 🚀 快速开始
 - **[USER_GUIDE.md](docs/USER_GUIDE.md)** - 用户使用指南（推荐首读）
 - **[QUICK_START.md](docs/QUICK_START.md)** - 快速开始指南
+- **[BUILD_GUIDE.md](docs/BUILD_GUIDE.md)** - 打包构建指南（分发应用）
+- **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** - 故障排除指南（遇到问题必看）
 - **[FIXED.md](docs/FIXED.md)** - 问题修复说明
 
 ### 📖 配置文档
@@ -25,6 +27,7 @@
 - **[README_AI_PROVIDERS.md](docs/README_AI_PROVIDERS.md)** - AI提供商使用说明
 
 ### 🔧 开发文档
+- **[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)** - 项目结构说明
 - **[AI_PROVIDERS_GUIDE.md](docs/AI_PROVIDERS_GUIDE.md)** - AI提供商开发指南
 - **[BATCH_PROGRESS_GUIDE.md](docs/BATCH_PROGRESS_GUIDE.md)** - 批量处理进度指南
 - **[TONGYI_API_GUIDE.md](docs/TONGYI_API_GUIDE.md)** - 通义千问API指南
@@ -58,17 +61,24 @@ AI失败时自动降级到规则引擎
 
 ## 📦 快速安装
 
-### 1. 安装依赖
+### 系统要求
+
+- **Python 3.8 - 3.11**（推荐 3.10 或 3.11）
+- ⚠️ **注意**：打包功能不支持 Python 3.12+，推荐使用 3.11
+
+### 方式一：开发者模式（需要 Python）
+
+#### 1. 安装依赖
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 运行程序
+#### 2. 运行程序
 ```bash
 python main.py
 ```
 
-### 3. 配置AI引擎
+#### 3. 配置AI引擎
 程序启动后：
 1. 点击右上角 **"⚙ 设置"** 按钮
 2. 选择AI引擎（通义千问 或 规则引擎）
@@ -77,6 +87,28 @@ python main.py
 5. 开始使用！
 
 **获取通义千问API Key**：[点击这里](https://dashscope.aliyun.com/)
+
+### 方式二：打包为独立应用（无需 Python）
+
+将应用打包成可执行文件，分发给任何用户使用：
+
+#### Windows 用户
+```batch
+# 运行打包脚本
+build\build.bat
+
+# 打包完成后，在 dist/ 目录获取 DesktopCleaner.exe
+```
+
+#### Linux/macOS 用户
+```bash
+# 运行打包脚本
+./build/build.sh
+
+# 打包完成后，在 dist/ 目录获取 DesktopCleaner
+```
+
+详细打包指南: **[BUILD_GUIDE.md](docs/BUILD_GUIDE.md)**
 
 ---
 
@@ -99,6 +131,17 @@ desktop-cleaner/
 ├── config.py                    # 全局配置
 ├── requirements.txt             # 依赖包
 │
+├── build/                       # 构建目录
+│   ├── build.bat               # Windows打包脚本
+│   ├── build.sh                # Linux/macOS打包脚本
+│   ├── desktop_cleaner.spec    # PyInstaller配置
+│   └── README.md               # 构建说明
+│
+├── scripts/                     # 开发脚本
+│   ├── git-commit.sh           # Git提交脚本
+│   ├── merge-to-main.sh        # 分支合并脚本
+│   └── README.md               # 脚本说明
+│
 ├── ui/                          # UI界面
 │   ├── main_window.py          # 主窗口
 │   └── settings_dialog.py      # 设置对话框
@@ -117,6 +160,7 @@ desktop-cleaner/
 │
 └── docs/                        # 文档目录
     ├── USER_GUIDE.md           # 用户使用指南
+    ├── BUILD_GUIDE.md          # 打包构建指南
     ├── QUICK_START.md          # 快速开始指南
     ├── FIXED.md                # 问题修复说明
     ├── CONFIG_GUIDE.md         # 配置参数详解
@@ -126,6 +170,8 @@ desktop-cleaner/
     ├── TONGYI_API_GUIDE.md     # 通义千问API指南
     └── CHANGELOG.md            # 版本更新日志
 ```
+
+详细结构说明: [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 
 ---
 
