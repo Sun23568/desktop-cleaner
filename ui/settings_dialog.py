@@ -146,6 +146,22 @@ class SettingsDialog(QDialog):
         self.rule_group.setLayout(rule_layout)
         layout.addWidget(self.rule_group)
 
+        # ========== 文件过滤配置 ==========
+        filter_group = QGroupBox("文件过滤配置")
+        filter_layout = QFormLayout()
+
+        self.ignore_extensions_input = QLineEdit()
+        self.ignore_extensions_input.setPlaceholderText("例如: .ini, .sys, .dll, .exe")
+        self.ignore_extensions_input.setToolTip("输入要忽略的文件扩展名，用逗号分隔。例如: .ini, .sys, .dll, .exe")
+        filter_layout.addRow("忽略扩展名:", self.ignore_extensions_input)
+
+        tip_label2 = QLabel("提示: 扫描时会自动跳过这些类型的文件")
+        tip_label2.setStyleSheet("color: #666; font-size: 11px;")
+        filter_layout.addRow("", tip_label2)
+
+        filter_group.setLayout(filter_layout)
+        layout.addWidget(filter_group)
+
         # ========== 高级设置 ==========
         advanced_group = QGroupBox("高级设置")
         advanced_layout = QFormLayout()
@@ -416,6 +432,11 @@ class SettingsDialog(QDialog):
         self.batch_size_spin.setValue(config.get('max_files_per_request', 10))
         self.timeout_spin.setValue(config.get('ai_timeout', 120))
 
+        # 设置文件过滤配置
+        ignore_extensions = config.get('ignore_extensions', ['.ini', '.sys', '.dll', '.exe'])
+        # 将列表转换为逗号分隔的字符串
+        self.ignore_extensions_input.setText(', '.join(ignore_extensions))
+
         # 更新UI显示
         self.on_provider_changed()
 
@@ -503,6 +524,17 @@ class SettingsDialog(QDialog):
                 if reply == QMessageBox.StandardButton.No:
                     return
 
+        # 解析过滤扩展名
+        ignore_ext_text = self.ignore_extensions_input.text().strip()
+        ignore_extensions = []
+        if ignore_ext_text:
+            # 分割并清理每个扩展名
+            ignore_extensions = [
+                ext.strip().lower() if ext.strip().startswith('.') else '.' + ext.strip().lower()
+                for ext in ignore_ext_text.split(',')
+                if ext.strip()
+            ]
+
         # 收集配置
         config = {
             'ai_provider': provider,
@@ -513,6 +545,7 @@ class SettingsDialog(QDialog):
             'rule_temp_file_days': self.temp_file_days_spin.value(),
             'max_files_per_request': self.batch_size_spin.value(),
             'ai_timeout': self.timeout_spin.value(),
+            'ignore_extensions': ignore_extensions,
         }
 
         # 保存配置
