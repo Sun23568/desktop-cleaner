@@ -7,6 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict
 import config
+from core.user_config import get_config_manager
 
 
 class FileInfo:
@@ -48,6 +49,8 @@ class FileScanner:
         """
         self.scan_paths = scan_paths or config.DEFAULT_SCAN_PATHS
         self.scanned_files: List[FileInfo] = []
+        # 获取配置管理器（不在此处缓存配置，每次扫描时动态读取）
+        self.config_manager = get_config_manager()
 
     def scan(self, progress_callback=None) -> List[FileInfo]:
         """
@@ -104,8 +107,11 @@ class FileScanner:
 
     def _should_include(self, file_info: FileInfo) -> bool:
         """判断文件是否应该被包含"""
-        # 忽略指定扩展名
-        if file_info.extension in config.IGNORE_EXTENSIONS:
+        # 动态获取最新的过滤扩展名配置（确保立即生效）
+        ignore_extensions = self.config_manager.get('ignore_extensions', config.IGNORE_EXTENSIONS)
+
+        # 忽略指定扩展名（使用用户配置）
+        if file_info.extension in ignore_extensions:
             return False
 
         # 忽略太小的文件

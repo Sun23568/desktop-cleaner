@@ -17,7 +17,7 @@ DEFAULT_SCAN_PATHS = [
 # 文件过滤配置
 # 忽略的文件扩展名
 IGNORE_EXTENSIONS = [
-    '.ini', '.sys', '.dll'  # 系统文件
+    '.ini', '.sys', '.dll', '.exe'  # 系统文件和可执行文件
 ]
 
 # 忽略的文件夹

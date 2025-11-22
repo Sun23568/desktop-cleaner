@@ -36,6 +36,7 @@ class UserConfigManager:
                 'rule_temp_file_days': getattr(default_config, 'RULE_TEMP_FILE_DAYS', 7),
                 'max_files_per_request': getattr(default_config, 'MAX_FILES_PER_REQUEST', 10),
                 'ai_timeout': getattr(default_config, 'AI_TIMEOUT', 120),
+                'ignore_extensions': getattr(default_config, 'IGNORE_EXTENSIONS', ['.ini', '.sys', '.dll', '.exe']),
             }
         except:
             # 如果无法导入config.py，使用硬编码默认值
@@ -48,6 +49,7 @@ class UserConfigManager:
                 'rule_temp_file_days': 7,
                 'max_files_per_request': 10,
                 'ai_timeout': 120,
+                'ignore_extensions': ['.ini', '.sys', '.dll', '.exe'],
             }
 
         # 加载配置
