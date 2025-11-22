@@ -8,7 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+.build_temp/
 develop-eggs/
 dist/
 downloads/
@@ -28,7 +28,11 @@ MANIFEST
 
 # PyInstaller
 *.manifest
-*.spec
+# Note: build/desktop_cleaner.spec is tracked in version control
+# Ignore PyInstaller build artifacts
+build/desktop_cleaner/
+build/*.exe
+build/*.pkg
 
 # Installer logs
 pip-log.txt
@@ -186,6 +190,11 @@ test_output/
 output/
 temp/
 
-# Scripts and test files
+# Shell scripts (except in scripts/ and build/)
 *.sh
+# Exception: track scripts in specific directories
+!scripts/*.sh
+!build/*.sh
+
+# Test files
 test_*.py
