@@ -9,8 +9,10 @@ from PyQt6.QtWidgets import (
     QMessageBox, QFileDialog
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QPixmap, QPainter, QPen, QPainterPath
 import config
+import os
+import tempfile
 
 # 导入核心模块
 import sys
@@ -100,11 +102,39 @@ class MainWindow(QMainWindow):
         self.scanned_files = []
         self.ai_suggestions = []
 
+        # 创建对勾图标
+        self.checkmark_icon_path = self.create_checkmark_icon()
+
         self.init_ui()
         self.update_window_title()
 
         # 首次运行检查
         self.check_first_run()
+
+    def create_checkmark_icon(self):
+        """创建对勾图标PNG文件"""
+        temp_dir = tempfile.gettempdir()
+        check_pixmap = QPixmap(18, 18)
+        check_pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(check_pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # 绘制对勾（调整位置和大小以适配18x18）
+        path = QPainterPath()
+        path.moveTo(3, 9)
+        path.lineTo(7, 13)
+        path.lineTo(15, 5)
+
+        pen = QPen(QColor(255, 255, 255), 2.2)  # 白色对勾
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.drawPath(path)
+        painter.end()
+
+        check_path = os.path.join(temp_dir, 'main_checkmark.png')
+        check_pixmap.save(check_path)
+        return check_path
 
     def create_analyzer(self):
         """根据用户配置创建AI分析器"""
@@ -230,6 +260,9 @@ class MainWindow(QMainWindow):
         self.files_table.horizontalHeader().setSectionResizeMode(
             3, QHeaderView.ResizeMode.Stretch
         )
+        # 设置默认行高，让表格更舒适，能完美容纳复选框
+        self.files_table.verticalHeader().setDefaultSectionSize(40)
+        self.files_table.verticalHeader().setMinimumSectionSize(40)
         top_layout.addWidget(self.files_table)
 
         splitter.addWidget(top_widget)
@@ -255,6 +288,9 @@ class MainWindow(QMainWindow):
         self.suggestions_table.horizontalHeader().setSectionResizeMode(
             3, QHeaderView.ResizeMode.Stretch
         )
+        # 设置默认行高，保持与文件表格一致
+        self.suggestions_table.verticalHeader().setDefaultSectionSize(40)
+        self.suggestions_table.verticalHeader().setMinimumSectionSize(40)
         bottom_layout.addWidget(self.suggestions_table)
 
         splitter.addWidget(bottom_widget)
@@ -345,6 +381,8 @@ class MainWindow(QMainWindow):
             checkbox = QCheckBox()
             checkbox.setChecked(True)
             checkbox.setToolTip("勾选以包含在AI分析中")
+            # 设置固定尺寸确保复选框不被拉伸，保持正方形
+            checkbox.setFixedSize(18, 18)
             cell_widget = QWidget()
             cell_layout = QHBoxLayout(cell_widget)
             cell_layout.addWidget(checkbox)
@@ -709,19 +747,34 @@ class MainWindow(QMainWindow):
         QCheckBox::indicator {
             width: 18px;
             height: 18px;
-            border: 2px solid #bbb;
+            min-width: 18px;
+            max-width: 18px;
+            min-height: 18px;
+            max-height: 18px;
+            border: 2px solid #e1e8ed;
             border-radius: 4px;
             background-color: white;
         }
 
-        QCheckBox::indicator:checked {
-            background-color: #5b8ba8;
-            border-color: #5b8ba8;
-            image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEzLjMzMzMgNEw2IDExLjMzMzNMMi42NjY2NyA4IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
-        }
-
         QCheckBox::indicator:hover {
             border-color: #5b8ba8;
+            background-color: #f8fafb;
+        }
+
+        QCheckBox::indicator:checked {
+            background-color: #5b8ba8;
+            border: none;
+            image: url(CHECKMARK_URL_PLACEHOLDER);
+        }
+
+        QCheckBox::indicator:checked:hover {
+            background-color: #4a7a97;
+            border: none;
         }
         """
+
+        # 替换对勾图标路径
+        checkmark_url = self.checkmark_icon_path.replace('\\', '/')
+        style = style.replace('CHECKMARK_URL_PLACEHOLDER', checkmark_url)
+
         self.setStyleSheet(style)
