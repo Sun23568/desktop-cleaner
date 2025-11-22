@@ -17,11 +17,12 @@ class AIProvider(ABC):
         self.config = config or {}
 
     @abstractmethod
-    def analyze_files(self, files: List[Dict]) -> Dict:
+    def analyze_files(self, files: List[Dict], existing_categories: List[str] = None) -> Dict:
         """
         分析文件列表，返回整理建议
 
         :param files: 文件信息列表，每个文件包含 name, path, extension, size_kb, modified_time 等字段
+        :param existing_categories: 已存在的类别列表（用于保持一致性）
         :return: 分析结果
 
         返回格式:

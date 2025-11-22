@@ -27,12 +27,16 @@ class TongyiProvider(AIProvider):
         """检查API Key是否配置"""
         return bool(self.api_key and self.api_key != 'your-api-key-here')
 
-    def analyze_files(self, files: List[Dict]) -> Dict:
-        """分析文件列表"""
+    def analyze_files(self, files: List[Dict], existing_categories: List[str] = None) -> Dict:
+        """分析文件列表
+
+        :param files: 文件列表
+        :param existing_categories: 已存在的类别列表（用于保持一致性）
+        """
         if not self.is_available():
             raise Exception("通义千问API Key未配置")
 
-        prompt = self._build_prompt(files)
+        prompt = self._build_prompt(files, existing_categories)
 
         try:
             response_text = self._call_api(prompt)
@@ -42,17 +46,35 @@ class TongyiProvider(AIProvider):
             print(f"❌ 通义千问分析失败: {e}")
             return self._get_empty_result()
 
-    def _build_prompt(self, files: List[Dict]) -> str:
-        """构建提示词"""
+    def _build_prompt(self, files: List[Dict], existing_categories: List[str] = None) -> str:
+        """构建提示词
+
+        :param files: 文件列表
+        :param existing_categories: 已存在的类别列表（用于保持一致性）
+        """
         files_description = "文件列表:\n"
         for i, file in enumerate(files, 1):
             files_description += f"{i}. {file['name']} - {file['size_kb']}KB - 修改时间:{file['modified_time']}\n"
             files_description += f"   路径: {file['path']}\n"
 
+        # 预定义的标准类别
+        standard_categories = [
+            "文档", "图片", "视频", "音频", "压缩包",
+            "安装包", "代码", "临时文件", "系统文件",
+            "办公文档", "学习资料", "工作文件", "个人文件"
+        ]
+
+        # 如果有已存在的类别，优先使用
+        category_hint = ""
+        if existing_categories:
+            category_hint = f"\n⚠️ 重要提示：前面的批次已经使用了以下类别，请优先使用这些类别以保持一致性：\n{', '.join(existing_categories)}\n"
+
+        category_list = "、".join(standard_categories)
+
         prompt = f"""你是一个智能文件管理助手。请分析以下桌面和下载文件夹中的文件，并给出整理建议。
 
 {files_description}
-
+{category_hint}
 请按照以下JSON格式返回分析结果（只返回JSON，不要其他文字）：
 
 {{
@@ -61,21 +83,22 @@ class TongyiProvider(AIProvider):
             "file_path": "文件完整路径",
             "action": "delete/move/keep",
             "reason": "建议理由",
-            "category": "文件分类（如：临时文件、重要文档、图片等）",
+            "category": "文件分类",
             "confidence": 0.9
         }}
     ],
     "categories": {{
         "临时文件": ["文件名1", "文件名2"],
-        "重要文档": ["文件名3"]
+        "文档": ["文件名3"]
     }}
 }}
 
 分析要点：
 1. 识别临时文件、重复文件、过期文件，建议删除
-2. 将文件按类型分类（文档、图片、视频、安装包等）
-3. 标注每个建议的置信度
-4. 给出清晰的理由
+2. ⭐ 分类时请优先使用以下标准类别：{category_list}
+3. ⭐ 保持类别命名一致，避免使用相似但不同的类别名（如"文档"和"文档文件"是重复的）
+4. 标注每个建议的置信度（0-1之间的数字）
+5. 给出清晰的理由
 
 现在请开始分析。"""
 

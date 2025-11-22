@@ -109,9 +109,16 @@ class AIAnalyzer:
                     print(f"      {idx}. {f['name']} ({f['size_kb']}KB)")
                 if len(batch) > 5:
                     print(f"      ... 还有 {len(batch)-5} 个文件")
+
+                # 传递已有的类别给后续批次，保持一致性
+                existing_categories = list(all_categories.keys()) if all_categories else None
+                if existing_categories:
+                    print(f"   📌 已有类别: {', '.join(existing_categories[:5])}" +
+                          (f" 等{len(existing_categories)}个" if len(existing_categories) > 5 else ""))
+
                 print("▶"*40 + "\n")
 
-                batch_result = self._analyze_batch(batch, batch_num, total_batches)
+                batch_result = self._analyze_batch(batch, batch_num, total_batches, existing_categories)
 
                 # 统计本批结果
                 batch_suggestions_count = len(batch_result.get('suggestions', []))
@@ -151,19 +158,21 @@ class AIAnalyzer:
 
             return result
 
-    def _analyze_batch(self, files: List[Dict], batch_num: int = 1, total_batches: int = 1) -> Dict:
+    def _analyze_batch(self, files: List[Dict], batch_num: int = 1, total_batches: int = 1,
+                       existing_categories: List[str] = None) -> Dict:
         """
         分析一批文件（内部方法）
 
         :param files: 文件列表
         :param batch_num: 当前批次号
         :param total_batches: 总批次数
+        :param existing_categories: 已存在的类别列表（用于保持一致性）
         """
         print(f"🔄 开始分析批次 {batch_num}/{total_batches}...")
 
-        # 调用AI提供商
+        # 调用AI提供商，传递已有类别以保持一致性
         try:
-            result = self.provider.analyze_files(files)
+            result = self.provider.analyze_files(files, existing_categories)
 
             # 解析成功日志
             suggestions_count = len(result.get('suggestions', []))
