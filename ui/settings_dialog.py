@@ -6,11 +6,100 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QComboBox, QGroupBox,
     QSpinBox, QCheckBox, QMessageBox, QFormLayout,
-    QWidget
+    QWidget, QStyledItemDelegate, QStyleOptionViewItem, QStyle
 )
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QPen, QColor
+from PyQt6.QtCore import Qt, QModelIndex, QRect, QTimer
+from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen, QPainterPath, QPalette
 from core.user_config import get_config_manager
+import os
+import tempfile
+
+
+class CustomComboBox(QComboBox):
+    """自定义ComboBox，修复弹出位置问题"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def showPopup(self):
+        """重写showPopup，确保列表显示在ComboBox下方"""
+        # 先调用父类方法显示弹出窗口
+        super().showPopup()
+
+        # 获取弹出窗口
+        popup = self.view().parentWidget()
+        if popup:
+            # 计算ComboBox在屏幕上的位置
+            combo_pos = self.mapToGlobal(self.rect().bottomLeft())
+
+            # 设置弹出窗口的位置到ComboBox正下方
+            popup.move(combo_pos.x(), combo_pos.y())
+
+            # 确保弹出窗口的宽度与ComboBox一致
+            popup.setMinimumWidth(self.width())
+
+        # 延迟滚动到顶部
+        QTimer.singleShot(0, self._scroll_to_top)
+
+    def _scroll_to_top(self):
+        """滚动到列表顶部"""
+        view = self.view()
+        if view and view.model() and view.model().rowCount() > 0:
+            # 滚动到第一项
+            first_index = view.model().index(0, 0)
+            view.scrollTo(first_index, view.ScrollHint.PositionAtTop)
+
+
+class ComboBoxItemDelegate(QStyledItemDelegate):
+    """自定义下拉框项目委托，用于绘制 hover 效果"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def paint(self, painter, option, index):
+        """自定义绘制下拉项"""
+        painter.save()
+
+        # 获取项目矩形
+        rect = option.rect
+
+        # 根据状态设置颜色
+        if option.state & QStyle.StateFlag.State_Selected:
+            # 选中状态
+            if option.state & QStyle.StateFlag.State_MouseOver:
+                # 选中且鼠标悬浮 - 深蓝色
+                bg_color = QColor("#4a7a97")
+            else:
+                # 仅选中 - 蓝色
+                bg_color = QColor("#5b8ba8")
+            text_color = QColor("#ffffff")
+        elif option.state & QStyle.StateFlag.State_MouseOver:
+            # 仅鼠标悬浮 - 浅蓝色
+            bg_color = QColor("#d5e8f0")
+            text_color = QColor("#000000")
+        else:
+            # 默认状态 - 白色
+            bg_color = QColor("#ffffff")
+            text_color = QColor("#2c3e50")
+
+        # 绘制背景 - 左右留边距，上下填满
+        bg_rect = rect.adjusted(4, 0, -4, 0)  # 仅左右各4px边距，上下填满
+        painter.fillRect(bg_rect, bg_color)
+
+        # 绘制文字
+        text = index.data(Qt.ItemDataRole.DisplayRole)
+        if text:
+            painter.setPen(text_color)
+            text_rect = rect.adjusted(12, 0, -12, 0)  # 左右各留12px边距
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, text)
+
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        """设置项目大小"""
+        size = super().sizeHint(option, index)
+        size.setHeight(34)  # 设置高度为34px
+        return size
 
 
 class SettingsDialog(QDialog):
@@ -19,50 +108,80 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.config_manager = get_config_manager()
+        self.arrow_icons = {}
+        self.create_modern_arrow_icons()
         self.init_ui()
         self.load_current_config()
 
-    @staticmethod
-    def create_checkmark_icon():
-        """创建对勾图标"""
-        pixmap = QPixmap(20, 20)
-        pixmap.fill(Qt.GlobalColor.transparent)
+    def create_modern_arrow_icons(self):
+        """创建现代化的箭头图标和对勾图标"""
+        # 创建临时目录存放图标
+        temp_dir = tempfile.gettempdir()
 
-        painter = QPainter(pixmap)
+        # 向下箭头（现代化设计）
+        down_pixmap = QPixmap(16, 16)
+        down_pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(down_pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # 绘制对勾
-        pen = QPen(QColor(255, 255, 255), 2.5)
+        # 绘制圆润的向下箭头
+        path = QPainterPath()
+        path.moveTo(3, 5)
+        path.lineTo(8, 10)
+        path.lineTo(13, 5)
+
+        pen = QPen(QColor(102, 102, 102), 2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
+        painter.drawPath(path)
+        painter.end()
 
-        # 绘制对勾路径
-        from PyQt6.QtGui import QPainterPath
+        down_path = os.path.join(temp_dir, 'arrow_down.png')
+        down_pixmap.save(down_path)
+        self.arrow_icons['down'] = down_path
+
+        # 向上箭头
+        up_pixmap = QPixmap(16, 16)
+        up_pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(up_pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        path = QPainterPath()
+        path.moveTo(3, 11)
+        path.lineTo(8, 6)
+        path.lineTo(13, 11)
+
+        painter.setPen(pen)
+        painter.drawPath(path)
+        painter.end()
+
+        up_path = os.path.join(temp_dir, 'arrow_up.png')
+        up_pixmap.save(up_path)
+        self.arrow_icons['up'] = up_path
+
+        # 对勾图标（用于复选框）
+        check_pixmap = QPixmap(20, 20)
+        check_pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(check_pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # 绘制对勾
         path = QPainterPath()
         path.moveTo(4, 10)
         path.lineTo(8, 14)
         path.lineTo(16, 6)
+
+        pen = QPen(QColor(255, 255, 255), 2.5)  # 白色对勾
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
         painter.drawPath(path)
-
         painter.end()
-        return QIcon(pixmap)
 
-    @staticmethod
-    def get_arrow_svg_base64(direction='down'):
-        """获取箭头SVG的base64编码"""
-        import base64
-        if direction == 'down':
-            svg = '''<svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 4 L6 8 L10 4" stroke="#666" stroke-width="1.5"
-                      stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>'''
-        else:  # up
-            svg = '''<svg width="12" height="12" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
-                <path d="M2 8 L6 4 L10 8" stroke="#666" stroke-width="1.5"
-                      stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-            </svg>'''
-        return base64.b64encode(svg.encode('utf-8')).decode('utf-8')
+        check_path = os.path.join(temp_dir, 'checkmark.png')
+        check_pixmap.save(check_path)
+        self.arrow_icons['checkmark'] = check_path
 
     def init_ui(self):
         """初始化UI"""
@@ -77,7 +196,7 @@ class SettingsDialog(QDialog):
         provider_group = QGroupBox("AI提供商")
         provider_layout = QFormLayout()
 
-        self.provider_combo = QComboBox()
+        self.provider_combo = CustomComboBox()
         self.provider_combo.addItem("通义千问 (需要API Key)", "tongyi")
         self.provider_combo.addItem("规则引擎 (完全离线)", "rule_based")
         self.provider_combo.currentIndexChanged.connect(self.on_provider_changed)
@@ -93,14 +212,13 @@ class SettingsDialog(QDialog):
         self.api_key_input = QLineEdit()
         self.api_key_input.setPlaceholderText("请输入你的通义千问API Key")
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        tongyi_layout.addRow("API Key:", self.api_key_input)
 
         # 显示/隐藏密码按钮
         api_key_layout = QHBoxLayout()
         api_key_layout.addWidget(self.api_key_input)
 
-        self.show_key_btn = QPushButton("👁")
-        self.show_key_btn.setMaximumWidth(40)
+        self.show_key_btn = QPushButton("显示")
+        self.show_key_btn.setMaximumWidth(60)
         self.show_key_btn.setCheckable(True)
         self.show_key_btn.toggled.connect(self.toggle_api_key_visibility)
         api_key_layout.addWidget(self.show_key_btn)
@@ -109,7 +227,7 @@ class SettingsDialog(QDialog):
         api_key_widget.setLayout(api_key_layout)
         tongyi_layout.addRow("API Key:", api_key_widget)
 
-        self.model_combo = QComboBox()
+        self.model_combo = CustomComboBox()
         self.model_combo.addItems([
             "qwen-plus (推荐)",
             "qwen-max (最强)",
@@ -212,73 +330,129 @@ class SettingsDialog(QDialog):
         # 应用样式
         self.apply_style()
 
+        # 为所有ComboBox设置下拉列表样式
+        self.setup_combobox_styles()
+
         # 为复选框设置对勾图标
         self.fallback_checkbox.setStyleSheet(self.get_checkbox_style())
 
+    def setup_combobox_styles(self):
+        """为所有ComboBox设置下拉列表的样式 - 使用自定义委托"""
+        from PyQt6.QtCore import QMargins
+
+        # 创建自定义委托
+        delegate = ComboBoxItemDelegate(self)
+
+        # 为所有ComboBox应用委托和样式
+        for combo in self.findChildren(QComboBox):
+            # 获取下拉列表视图
+            list_view = combo.view()
+
+            # 设置自定义委托（关键！这会完全控制项目的绘制）
+            list_view.setItemDelegate(delegate)
+
+            # 启用鼠标跟踪（必须！否则hover状态不会触发）
+            list_view.setMouseTracking(True)
+
+            # 设置内容边距为0（关键！确保列表从顶部开始）
+            list_view.setContentsMargins(0, 0, 0, 0)
+            list_view.setViewportMargins(0, 0, 0, 0)
+
+            # 设置间距为0
+            list_view.setSpacing(0)
+
+            # 设置框架宽度为0
+            list_view.setFrameShape(list_view.Shape.NoFrame)
+
+            # 设置列表容器的样式 - 移除padding避免位置偏移
+            list_view_style = """
+                QListView {
+                    border: 2px solid #e1e8ed;
+                    border-radius: 8px;
+                    background-color: white;
+                    outline: none;
+                    padding: 0px;
+                    margin: 0px;
+                }
+                QListView::item:first {
+                    margin-top: 0px;
+                    padding-top: 0px;
+                }
+            """
+            list_view.setStyleSheet(list_view_style)
+
+            # 设置视图位置模式，确保从顶部开始
+            list_view.setVerticalScrollMode(list_view.ScrollMode.ScrollPerPixel)
+
+            # 确保第一个项目可见
+            if list_view.model() and list_view.model().rowCount() > 0:
+                list_view.scrollToTop()
+
     def get_checkbox_style(self):
         """获取复选框样式（包含对勾图标）"""
-        # 使用data URI内嵌SVG对勾图标
-        checkmark_svg = '''
-        <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-            <path d="M4 10 L8 14 L16 6" stroke="white" stroke-width="2.5"
-                  stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        </svg>
-        '''
-        import base64
-        svg_bytes = checkmark_svg.encode('utf-8')
-        svg_base64 = base64.b64encode(svg_bytes).decode('utf-8')
+        # 转换Windows路径为URL格式
+        checkmark_url = self.arrow_icons['checkmark'].replace('\\', '/')
 
         return f"""
             QCheckBox::indicator {{
                 width: 20px;
                 height: 20px;
-                border-radius: 4px;
-                border: 2px solid #dcdcdc;
+                border-radius: 5px;
+                border: 2px solid #e1e8ed;
                 background-color: white;
             }}
             QCheckBox::indicator:hover {{
                 border-color: #5b8ba8;
+                background-color: #f8fafb;
             }}
             QCheckBox::indicator:checked {{
                 background-color: #5b8ba8;
                 border-color: #5b8ba8;
-                image: url(data:image/svg+xml;base64,{svg_base64});
+                image: url({checkmark_url});
             }}
             QCheckBox::indicator:checked:hover {{
                 background-color: #4a7a97;
                 border-color: #4a7a97;
             }}
+            QCheckBox {{
+                spacing: 8px;
+                color: #2c3e50;
+            }}
         """
 
     def apply_style(self):
-        """应用样式"""
-        # 获取箭头图标
-        down_arrow = self.get_arrow_svg_base64('down')
-        up_arrow = self.get_arrow_svg_base64('up')
+        """应用样式 - 现代化设计"""
+        # 转换Windows路径为URL格式
+        down_arrow_url = self.arrow_icons['down'].replace('\\', '/')
+        up_arrow_url = self.arrow_icons['up'].replace('\\', '/')
 
         self.setStyleSheet(f"""
             QDialog {{
-                background-color: #fafafa;
+                background-color: #f5f7fa;
             }}
             QGroupBox {{
-                font-weight: bold;
-                border: 2px solid #dcdcdc;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
+                font-weight: 600;
+                font-size: 14px;
+                border: 2px solid #e1e8ed;
+                border-radius: 10px;
+                margin-top: 12px;
+                padding-top: 12px;
+                background-color: white;
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
+                left: 15px;
+                padding: 0 8px;
+                color: #2c3e50;
             }}
             QPushButton {{
                 background-color: #5b8ba8;
                 color: white;
                 border: none;
-                border-radius: 6px;
-                padding: 8px 15px;
+                border-radius: 8px;
+                padding: 10px 20px;
                 font-weight: 500;
+                font-size: 13px;
             }}
             QPushButton:hover {{
                 background-color: #4a7a97;
@@ -290,115 +464,126 @@ class SettingsDialog(QDialog):
                 background-color: #6b9ac4;
             }}
             QPushButton#reset_btn {{
-                background-color: #999;
+                background-color: #95a5a6;
+            }}
+            QPushButton#reset_btn:hover {{
+                background-color: #7f8c8d;
             }}
             QLineEdit {{
-                padding: 6px;
-                border: 1px solid #dcdcdc;
-                border-radius: 4px;
+                padding: 8px 12px;
+                border: 2px solid #e1e8ed;
+                border-radius: 6px;
                 background-color: white;
+                font-size: 13px;
+            }}
+            QLineEdit:hover {{
+                border: 2px solid #bdc3c7;
+            }}
+            QLineEdit:focus {{
+                border: 2px solid #5b8ba8;
+                background-color: #f8fafb;
             }}
 
-            /* ========== 下拉框样式优化 ========== */
+            /* ========== 现代化下拉框样式 ========== */
             QComboBox {{
-                padding: 6px 30px 6px 10px;
-                border: 1px solid #dcdcdc;
-                border-radius: 4px;
+                padding: 8px 12px;
+                padding-right: 35px;
+                border: 2px solid #e1e8ed;
+                border-radius: 6px;
                 background-color: white;
-                min-height: 25px;
+                min-height: 28px;
+                font-size: 13px;
             }}
             QComboBox:hover {{
-                border: 1px solid #5b8ba8;
+                border: 2px solid #bdc3c7;
+                background-color: #f8fafb;
             }}
             QComboBox:focus {{
                 border: 2px solid #5b8ba8;
+                background-color: white;
             }}
-            /* 下拉箭头区域 */
             QComboBox::drop-down {{
                 subcontrol-origin: padding;
-                subcontrol-position: top right;
-                width: 25px;
-                border-left: 1px solid #e0e0e0;
-                border-top-right-radius: 4px;
-                border-bottom-right-radius: 4px;
+                subcontrol-position: center right;
+                width: 30px;
+                border-left: none;
+                border-top-right-radius: 6px;
+                border-bottom-right-radius: 6px;
             }}
             QComboBox::drop-down:hover {{
-                background-color: #f0f8fc;
+                background-color: #ecf0f1;
             }}
-            /* 下拉箭头 */
             QComboBox::down-arrow {{
-                width: 12px;
-                height: 12px;
-                image: url(data:image/svg+xml;base64,{down_arrow});
+                image: url({down_arrow_url});
+                width: 16px;
+                height: 16px;
             }}
-            /* 下拉列表 */
             QComboBox QAbstractItemView {{
-                border: 1px solid #dcdcdc;
+                border: 2px solid #e1e8ed;
+                border-radius: 8px;
                 background-color: white;
-                selection-background-color: #e8f4f8;
-                selection-color: #333;
                 outline: none;
-                padding: 2px;
+                padding: 4px;
             }}
             QComboBox QAbstractItemView::item {{
-                min-height: 30px;
-                padding: 5px 10px;
+                height: 32px;
+                padding-left: 12px;
+                padding-right: 12px;
+                border: none;
             }}
-            QComboBox QAbstractItemView::item:hover {{
-                background-color: #f0f8fc;
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: #e8f4f8;
-                color: #333;
-            }}
+            /* 注意：这里不设置item的background和color，让Qt自己处理 */
 
-            /* ========== 数字选择框样式优化 ========== */
+            /* ========== 现代化数字选择框样式 ========== */
             QSpinBox {{
-                padding: 6px 25px 6px 10px;
-                border: 1px solid #dcdcdc;
-                border-radius: 4px;
+                padding: 8px 12px;
+                padding-right: 25px;
+                border: 2px solid #e1e8ed;
+                border-radius: 6px;
                 background-color: white;
-                min-height: 25px;
+                min-height: 28px;
+                font-size: 13px;
             }}
             QSpinBox:hover {{
-                border: 1px solid #5b8ba8;
+                border: 2px solid #bdc3c7;
+                background-color: #f8fafb;
             }}
             QSpinBox:focus {{
                 border: 2px solid #5b8ba8;
-            }}
-            /* 上下按钮容器 */
-            QSpinBox::up-button, QSpinBox::down-button {{
-                width: 20px;
-                background-color: transparent;
-                border: none;
-                border-left: 1px solid #e0e0e0;
+                background-color: white;
             }}
             QSpinBox::up-button {{
                 subcontrol-origin: border;
                 subcontrol-position: top right;
+                width: 22px;
+                border: none;
                 border-top-right-radius: 4px;
+                background-color: transparent;
             }}
             QSpinBox::down-button {{
                 subcontrol-origin: border;
                 subcontrol-position: bottom right;
+                width: 22px;
+                border: none;
                 border-bottom-right-radius: 4px;
+                background-color: transparent;
             }}
             QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
-                background-color: #f0f8fc;
+                background-color: #ecf0f1;
             }}
-            QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {{
-                background-color: #e8f4f8;
-            }}
-            /* 上下箭头 */
             QSpinBox::up-arrow {{
-                width: 10px;
-                height: 10px;
-                image: url(data:image/svg+xml;base64,{up_arrow});
+                image: url({up_arrow_url});
+                width: 12px;
+                height: 12px;
             }}
             QSpinBox::down-arrow {{
-                width: 10px;
-                height: 10px;
-                image: url(data:image/svg+xml;base64,{down_arrow});
+                image: url({down_arrow_url});
+                width: 12px;
+                height: 12px;
+            }}
+
+            /* ========== Label 样式 ========== */
+            QLabel {{
+                color: #2c3e50;
             }}
         """)
 
@@ -459,10 +644,10 @@ class SettingsDialog(QDialog):
         """切换API Key显示/隐藏"""
         if checked:
             self.api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.show_key_btn.setText("🙈")
+            self.show_key_btn.setText("隐藏")
         else:
             self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self.show_key_btn.setText("👁")
+            self.show_key_btn.setText("显示")
 
     def test_connection(self):
         """测试API连接"""
