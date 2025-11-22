@@ -33,8 +33,12 @@ class RuleBasedProvider(AIProvider):
         """规则引擎始终可用"""
         return True
 
-    def analyze_files(self, files: List[Dict]) -> Dict:
-        """基于规则分析文件"""
+    def analyze_files(self, files: List[Dict], existing_categories: List[str] = None) -> Dict:
+        """基于规则分析文件
+
+        :param files: 文件列表
+        :param existing_categories: 已存在的类别列表（规则引擎不使用，保持接口一致性）
+        """
         print(f"\n{'='*80}")
         print(f"🔧 使用规则引擎分析文件")
         print(f"{'='*80}")
